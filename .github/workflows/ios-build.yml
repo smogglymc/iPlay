@@ -11,24 +11,18 @@ permissions:
 
 jobs:
   build:
-    name: Build iPlay for iPhone
+    name: Build and inspect iPlay
     runs-on: macos-15
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Show Xcode version
-        run: xcodebuild -version
-
       - name: Install XcodeGen
         run: brew install xcodegen
 
       - name: Generate Xcode project
         run: xcodegen generate
-
-      - name: List Xcode schemes
-        run: xcodebuild -list -project iPlay.xcodeproj
 
       - name: Build iPhone archive
         run: |
@@ -40,20 +34,53 @@ jobs:
             -archivePath build/iPlay.xcarchive \
             CODE_SIGNING_ALLOWED=NO
 
+      - name: Inspect archived app and Messages extension
+        run: |
+          APP="build/iPlay.xcarchive/Products/Applications/iPlay.app"
+          EXT="$APP/PlugIns/iPlayMessages.appex"
+
+          echo "Checking host application..."
+          test -d "$APP"
+
+          echo "Checking Messages extension..."
+          test -d "$EXT"
+
+          echo "Extension Info.plist:"
+          plutil -p "$EXT/Info.plist"
+
+          echo "Checking extension point..."
+          /usr/libexec/PlistBuddy \
+            -c "Print :NSExtension:NSExtensionPointIdentifier" \
+            "$EXT/Info.plist"
+
+          echo "Checking extension bundle identifier..."
+          /usr/libexec/PlistBuddy \
+            -c "Print :CFBundleIdentifier" \
+            "$EXT/Info.plist"
+
       - name: Package unsigned IPA
         run: |
           mkdir -p build/ipa/Payload
 
-          cp -R build/iPlay.xcarchive/Products/Applications/iPlay.app \
+          cp -R \
+            build/iPlay.xcarchive/Products/Applications/iPlay.app \
             build/ipa/Payload/iPlay.app
 
           cd build/ipa
           zip -r ../iPlay-unsigned.ipa Payload
 
-      - name: Upload iPhone build
+      - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
           name: iPlay-iPhone-Unsigned
           path: build/iPlay-unsigned.ipa
-          if-no-files-found: error
           retention-days: 7
+
+      - name: Upload archive for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iPlay-Xcode-Archive
+          path: build/iPlay.xcarchive
+          retention-days: 7
+          if-no-files-found: warn
