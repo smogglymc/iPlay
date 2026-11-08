@@ -1,16 +1,17 @@
 
-name: iPlay iOS Build
+name: iPlay iPhone Build
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    name: Build iPlay
+    name: Build iPlay for iPhone
     runs-on: macos-15
 
     steps:
@@ -29,22 +30,30 @@ jobs:
       - name: List Xcode schemes
         run: xcodebuild -list -project iPlay.xcodeproj
 
-      - name: Build for iOS Simulator
+      - name: Build iPhone archive
         run: |
-          xcodebuild \
+          xcodebuild archive \
             -project iPlay.xcodeproj \
             -scheme iPlay \
-            -sdk iphonesimulator \
-            -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/iPlay.xcarchive \
+            CODE_SIGNING_ALLOWED=NO
 
-      - name: Upload build artifact
-        if: success()
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p build/ipa/Payload
+
+          cp -R build/iPlay.xcarchive/Products/Applications/iPlay.app \
+            build/ipa/Payload/iPlay.app
+
+          cd build/ipa
+          zip -r ../iPlay-unsigned.ipa Payload
+
+      - name: Upload iPhone build
         uses: actions/upload-artifact@v4
         with:
-          name: iPlay-iOS-Simulator-Build
-          path: build/Build/Products/Debug-iphonesimulator/iPlay.app
+          name: iPlay-iPhone-Unsigned
+          path: build/iPlay-unsigned.ipa
           if-no-files-found: error
+          retention-days: 7
