@@ -1,0 +1,40 @@
+name: iPlay
+options:
+  bundleIdPrefix: com.iplaygames
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: 5.9
+    IPHONEOS_DEPLOYMENT_TARGET: 16.0
+    TARGETED_DEVICE_FAMILY: "1,2"
+targets:
+  iPlay:
+    type: application
+    platform: iOS
+    sources:
+      - path: iPlay
+    info:
+      path: iPlay/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.iplaygames.ios
+        INFOPLIST_FILE: iPlay/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - target: iPlayMessages
+        embed: true
+  iPlayMessages:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: iPlayMessages
+    info:
+      path: iPlayMessages/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.iplaygames.ios.messages
+        INFOPLIST_FILE: iPlayMessages/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
