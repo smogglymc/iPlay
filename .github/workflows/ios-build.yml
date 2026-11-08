@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build and inspect iPlay
+    name: Build and fix iPlay extension
     runs-on: macos-15
 
     steps:
@@ -34,29 +34,51 @@ jobs:
             -archivePath build/iPlay.xcarchive \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Inspect archived app and Messages extension
+      - name: Repair Messages extension metadata
         run: |
-          APP="build/iPlay.xcarchive/Products/Applications/iPlay.app"
-          EXT="$APP/PlugIns/iPlayMessages.appex"
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
 
-          echo "Checking host application..."
-          test -d "$APP"
+          plist_path = Path(
+              "build/iPlay.xcarchive/Products/Applications/"
+              "iPlay.app/PlugIns/iPlayMessages.appex/Info.plist"
+          )
 
-          echo "Checking Messages extension..."
-          test -d "$EXT"
+          if not plist_path.exists():
+              raise SystemExit(f"Missing extension plist: {plist_path}")
 
-          echo "Extension Info.plist:"
-          plutil -p "$EXT/Info.plist"
+          with plist_path.open("rb") as f:
+              data = plistlib.load(f)
 
-          echo "Checking extension point..."
+          data["NSExtension"] = {
+              "NSExtensionPointIdentifier":
+                  "com.apple.message-payload-provider",
+              "NSExtensionPrincipalClass":
+                  "$(PRODUCT_MODULE_NAME).MessagesViewController"
+          }
+
+          with plist_path.open("wb") as f:
+              plistlib.dump(data, f, fmt=plistlib.FMT_XML)
+
+          print("Messages extension metadata repaired.")
+          PY
+
+      - name: Verify Messages extension
+        run: |
+          EXT="build/iPlay.xcarchive/Products/Applications/iPlay.app/PlugIns/iPlayMessages.appex"
+
+          plutil -lint "$EXT/Info.plist"
+
           /usr/libexec/PlistBuddy \
             -c "Print :NSExtension:NSExtensionPointIdentifier" \
             "$EXT/Info.plist"
 
-          echo "Checking extension bundle identifier..."
           /usr/libexec/PlistBuddy \
-            -c "Print :CFBundleIdentifier" \
+            -c "Print :NSExtension:NSExtensionPrincipalClass" \
             "$EXT/Info.plist"
+
+          test -d "$EXT"
 
       - name: Package unsigned IPA
         run: |
@@ -76,7 +98,7 @@ jobs:
           path: build/iPlay-unsigned.ipa
           retention-days: 7
 
-      - name: Upload archive for inspection
+      - name: Upload Xcode archive
         if: always()
         uses: actions/upload-artifact@v4
         with:
