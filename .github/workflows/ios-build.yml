@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build and fix iPlay extension
+    name: Build iPlay for iPhone
     runs-on: macos-15
 
     steps:
@@ -57,42 +57,35 @@ jobs:
               "NSExtensionPointIdentifier":
                   "com.apple.message-payload-provider",
               "NSExtensionPrincipalClass":
-                  "$(PRODUCT_MODULE_NAME).MessagesViewController"
+                  "iPlayMessages.MessagesViewController"
           }
 
           with plist_path.open("wb") as f:
               plistlib.dump(data, f, fmt=plistlib.FMT_XML)
 
           print("Messages extension metadata repaired.")
-          print("Display name:", data["CFBundleDisplayName"])
-          print("Bundle name:", data["CFBundleName"])
+          print("Principal class:", data["NSExtension"]["NSExtensionPrincipalClass"])
           PY
 
-      - name: Verify Messages extension
+      - name: Verify extension metadata
         run: |
           EXT="build/iPlay.xcarchive/Products/Applications/iPlay.app/PlugIns/iPlayMessages.appex"
 
           plutil -lint "$EXT/Info.plist"
 
-          echo "Checking display name..."
-          /usr/libexec/PlistBuddy \
-            -c "Print :CFBundleDisplayName" \
-            "$EXT/Info.plist"
+          echo "Display name:"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleDisplayName" "$EXT/Info.plist"
 
-          echo "Checking extension point..."
-          /usr/libexec/PlistBuddy \
-            -c "Print :NSExtension:NSExtensionPointIdentifier" \
-            "$EXT/Info.plist"
+          echo "Extension point:"
+          /usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPointIdentifier" "$EXT/Info.plist"
 
-          echo "Checking extension principal class..."
-          /usr/libexec/PlistBuddy \
-            -c "Print :NSExtension:NSExtensionPrincipalClass" \
-            "$EXT/Info.plist"
+          echo "Principal class:"
+          /usr/libexec/PlistBuddy -c "Print :NSExtension:NSExtensionPrincipalClass" "$EXT/Info.plist"
 
-          echo "Checking bundle identifier..."
-          /usr/libexec/PlistBuddy \
-            -c "Print :CFBundleIdentifier" \
-            "$EXT/Info.plist"
+          echo "Bundle identifier:"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$EXT/Info.plist"
+
+          test -f "$EXT/iPlayMessages"
 
       - name: Package unsigned IPA
         run: |
