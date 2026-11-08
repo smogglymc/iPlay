@@ -46,11 +46,13 @@ jobs:
           )
 
           if not plist_path.exists():
-              raise SystemExit(f"Missing extension plist: {plist_path}")
+              raise SystemExit("Messages extension Info.plist not found!")
 
           with plist_path.open("rb") as f:
               data = plistlib.load(f)
 
+          data["CFBundleDisplayName"] = "iPlay"
+          data["CFBundleName"] = "iPlay"
           data["NSExtension"] = {
               "NSExtensionPointIdentifier":
                   "com.apple.message-payload-provider",
@@ -62,6 +64,8 @@ jobs:
               plistlib.dump(data, f, fmt=plistlib.FMT_XML)
 
           print("Messages extension metadata repaired.")
+          print("Display name:", data["CFBundleDisplayName"])
+          print("Bundle name:", data["CFBundleName"])
           PY
 
       - name: Verify Messages extension
@@ -70,15 +74,25 @@ jobs:
 
           plutil -lint "$EXT/Info.plist"
 
+          echo "Checking display name..."
+          /usr/libexec/PlistBuddy \
+            -c "Print :CFBundleDisplayName" \
+            "$EXT/Info.plist"
+
+          echo "Checking extension point..."
           /usr/libexec/PlistBuddy \
             -c "Print :NSExtension:NSExtensionPointIdentifier" \
             "$EXT/Info.plist"
 
+          echo "Checking extension principal class..."
           /usr/libexec/PlistBuddy \
             -c "Print :NSExtension:NSExtensionPrincipalClass" \
             "$EXT/Info.plist"
 
-          test -d "$EXT"
+          echo "Checking bundle identifier..."
+          /usr/libexec/PlistBuddy \
+            -c "Print :CFBundleIdentifier" \
+            "$EXT/Info.plist"
 
       - name: Package unsigned IPA
         run: |
@@ -97,6 +111,7 @@ jobs:
           name: iPlay-iPhone-Unsigned
           path: build/iPlay-unsigned.ipa
           retention-days: 7
+          if-no-files-found: error
 
       - name: Upload Xcode archive
         if: always()
